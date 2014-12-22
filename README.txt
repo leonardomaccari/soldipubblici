@@ -5,6 +5,9 @@ BIG DISCLAIMER: Non esiste una API documentata al momento, quindi i dati
 vengono estratti secondo criteri di buon senso, potrebbero non essere
 corretti ed il programma potrebbe smettere di funzionare prima o poi.
 
+Questo codice è solo un hack, quindi non vi aspettate una gestione
+dell'errore particolarmente solida. 
+
 Come funziona:
  - ho raccolto i codici degli enti pubblici dal sito della ragioneria
    dello stato:
@@ -31,7 +34,7 @@ Come funziona:
 Esempio: la somma delle voci di spesa per la keyword "software" dei
 primi 10 comuni più popolosi d'Italia:
 
-> ./test_crawler.py 10 software
+> ./crawler.py 10 software
 
 
 Querying i 10 comuni piu' popolosi d'italia per la keyword 'software'
