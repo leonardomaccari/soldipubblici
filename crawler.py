@@ -22,6 +22,23 @@ import json
 from collections import defaultdict
 from time import sleep
 import sys
+from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import textwrap
+
+def plotData(xlabel, y, title):
+    print xlabel, y, title
+    w = 0.8
+    x = range(len(y))
+    fig, ax = plt.subplots()
+    ax.set_xticks([p+w/2 for p in x])
+    ax.set_xticklabels(xlabel)
+    fig.subplots_adjust(bottom=0.2)
+    plt.bar(x, y, width=w)
+    ax.set_title(title)
+    ax.set_ylabel("Milioni di Euro")
+    plt.show()
+    fig.savefig("/tmp/graph.png")
 
 f = open("data/codici_comuni_ordinati.json",'r')
 
@@ -59,14 +76,25 @@ print ""
 
 result_summary = defaultdict(int)
 
+graphX = []
+graphY = []
+
 for k, d in results.items():
     for item in d['data']:
         if 'importo_2013' in item and item['importo_2013']:
             result_summary[item['descrizione_codice']] += \
-                float(item['importo_2013'][:-2])
+                float(item['importo_2013'][:-2])/1000000
+
+
 
 print "------------ Risultati ------------"
 print "Per i comuni di:", ','.join(map(str,lista_comuni))
 print "Ci sono le seguenti spese (anno 2013):"
 for k,v in result_summary.items():
-    print " - ", k, ":", "{:,}".format(v), "Euro" 
+    print " - ", k, ":", "{:,}".format(v), "M Euro" 
+    graphX.append(textwrap.fill(k,15))
+    graphY.append(v)
+
+
+plotData(graphX, graphY, 
+    stringa_ricerca + ": top " + str(numero_comuni) + " comuni")
