@@ -33,7 +33,7 @@ class crawler():
         self.session = soldipubblici.soldi_pubblici()
         self.numero_comuni, self.stringa_ricerca = self.parse_args()
 
-    def clean_data(self, xlabel,y):
+    def clean_data(self, xlabel, y):
         del_index = []
         for i in range(len(xlabel)):
            unicode_string = xlabel[i].replace(u"\n",' ').encode('utf-8', 'ignore')
@@ -53,10 +53,11 @@ class crawler():
         fig, ax = plt.subplots()
         ax.set_xticks([p+w/2 for p in x])
         ax.set_xticklabels(xlabel)
-        fig.subplots_adjust(bottom=0.2)
+        #fig.subplots_adjust(bottom=0.2)
         plt.bar(x, y, width=w)
         ax.set_title(title)
         ax.set_ylabel("Milioni di Euro")
+        plt.tight_layout()
         plt.show()
         fig.savefig("/tmp/graph.png")
 
@@ -82,8 +83,8 @@ class crawler():
         stringa_ricerca = sys.argv[2]
         return numero_comuni, stringa_ricerca
 
-    def cumulative_query(self):
-        lista_comuni = []
+    def run_multiple_queries(self):
+        comuni_dict = {}
         results = {}
 
         print "Querying i", self.numero_comuni, \
@@ -92,12 +93,17 @@ class crawler():
         #a = filter( lambda x: x[1]['popolazione'] > 50000, comuni_italiani_ordinati)
         for c in self.comuni[:self.numero_comuni]:
             print "Querying:",c[1]['nome']
-            lista_comuni.append(c[1]['nome'])
+            comuni_dict[c[1]['nome']] = c[1]
             sleep(1)
             r = self.session.run_query(c[0].zfill(9), self.stringa_ricerca, 
                     c[1]['nome'].replace(" ", "+"))
             if r:
                 results[c[1]['nome']] = r
+        return results, comuni_dict
+
+
+    def cumulative_query(self):
+        results, comuni_dict = self.run_multiple_queries()
         print ""
         result_summary = defaultdict(int)
         graphX = []
@@ -108,7 +114,7 @@ class crawler():
                     result_summary[item['descrizione_codice']] += \
                         float(item['importo_2013'][:-2])/1000000
         print "------------ Risultati ------------"
-        print "Per i comuni di:", ','.join(map(str,lista_comuni))
+        print "Per i comuni di:", ','.join(map(str, comuni_dict.keys()))
         print "Ci sono le seguenti spese (anno 2013):"
         for k,v in result_summary.items():
             print " - ", k, ":", "{:,}".format(v), "M Euro" 
@@ -119,8 +125,73 @@ class crawler():
             self.stringa_ricerca + ": top " + str(self.numero_comuni) + \
             " comuni")
 
+    def classifica_comuni(self, procapite=True):
+        results = self.query_and_purge()
+        graph_y = defaultdict(float)
+        graph_title = ""
+        #graph_title = set(["Classifica spese per:\n"])
+        
+        for city, query_data in results.items():
+            for item in query_data['data']:
+                try:
+                    graph_y[city] += float(item['importo_2013'])/1000000
+                except TypeError:
+                    # some fields are None
+                    pass
+                graph_title += " " + item['codice_siope']
+        if procapite:
+            for (city, value) in graph_y.items():
+                for city_id, data in self.comuni:
+                    if city == data["nome"]:
+                        people = float(data["popolazione"])
+                graph_y[city] = value/people
+            
+            t = "Primi 10 comuni sui " + str(self.numero_comuni) +\
+                    " piu' abitati per spesa procapite in \n" + \
+                    " voci relative a " + self.stringa_ricerca 
+                    #" (codici siope:\n"
+            graph_title = t #+ textwrap.fill(graph_title, 80) + ")"
+        else:
+            t = "Primi 10 comuni sui " + str(self.numero_comuni) +\
+                    " piu' abitati per spesa totale in \n" + \
+                    " voci relative a " + self.stringa_ricerca 
+                    #" (codici siope:\n"
+            graph_title = t #+ textwrap.fill(graph_title, 80) + ")"
+
+        sorted_values = sorted(graph_y.items(), key = lambda x: x[1], reverse=True)
+        graph_x = [textwrap.fill(k, 10) for k in zip(*sorted_values)[0]]
+        graph_y = zip(*sorted_values)[1]
+        self.plot_data(graph_x[:9], graph_y[0:9], graph_title)
+
+        
+    def query_and_purge(self):
+        results, comuni_dict = self.run_multiple_queries()
+        returned_keys = set()
+        for k, d in results.items():
+            for item in d['data']:
+                returned_keys.add(item['descrizione_codice'])
+        key_list = list(returned_keys)
+        self.clean_data(key_list, range(len(returned_keys)))
+        for city, query_data in results.items():
+            for i in reversed(range(len(query_data['data']))):
+                if query_data['data'][i]['descrizione_codice'] not in key_list:
+                    del results[city]['data'][i]
+            if not query_data['data']:
+                    del results[city]
+        return results
+        #print "Per i comuni di:", ','.join(map(str, comuni_dict.keys()))
+        #print "Ci sono le seguenti spese (anno 2013):"
+        #for k,v in result_summary.items():
+        #    print " - ", k, ":", "{:,}".format(v), "M Euro" 
+        #    graphX.append(textwrap.fill(k,15))
+        #    graphY.append(v)
+        #self.plot_data(graphX, graphY, 
+        #    self.stringa_ricerca + ": top " + str(self.numero_comuni) + \
+        #    " comuni")
+
 
 if __name__ == '__main__':
     c = crawler()
     c.parse_args()
-    c.cumulative_query()
+    c.classifica_comuni()
+    #c.cumulative_query()
